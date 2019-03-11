@@ -1,6 +1,6 @@
 ---
 title: 'Homework 4: Bags, Forests, Boosts, oh my'
-author: "Your Name Goes Here"
+author: "Bassey Bassey"
 date: "2/28/2019"
 output: github_document
 ---
@@ -9,6 +9,26 @@ output: github_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+
+```{r libs, include=FALSE}
+library(tree)
+library(ISLR)
+library(janitor)
+library(caret)
+library(stringr)
+library(rsample)
+library(boot)
+library(tidyverse)
+library(broom)
+library(glmnet)
+library(rpart)
+library(rpart.plot)
+library(partykit)
+library(randomForest)
+```
+
+
+
 ## Problem 1
 
 Problem 7 from Chapter 8 in the text. To be specific, please use a sequence of
@@ -16,6 +36,7 @@ Problem 7 from Chapter 8 in the text. To be specific, please use a sequence of
 
 ## Answer 1
 
+Since this was already answered in the last class (and since you said it wont be graded, I have not included it here)
 ## Problem 2
 
 Problem 8 from Chapter 8 in the text. Set your seed with 9823 and split into 
@@ -27,3 +48,153 @@ test MSE.
 2. Fit a multiple regression model to the training data and report the 
 estimated test MSE
 3. Summarize your results. 
+
+```{r}
+attach(Carseats)
+set.seed(9823)
+df<- tbl_df(Carseats)
+inTraining <- createDataPartition(df$Sales, p=.50, list= F)
+training <- df[inTraining, ]
+testing <- df[-inTraining, ]
+```
+
+B
+
+```{r}
+
+tree_carseats <- rpart::rpart(Sales ~ ., 
+                              data = training,
+                              control = rpart.control(minsplit = 20))
+summary(tree_carseats)
+prp(tree_carseats)
+```
+
+```{r}
+plot(as.party(tree_carseats))
+```
+
+```{r}
+pred_carseats = predict(tree_carseats, testing)
+mean((testing$Sales - pred_carseats)^2)
+```
+ The test MSE is 2.8554
+ 
+ 
+C
+
+
+```{r}
+fit_control <- trainControl(method = "repeatedcv",
+                            number = 10, 
+                            repeats = 10)
+cv_tree_carseats <- train(Sales ~ ., 
+                          data = training,
+                          method = "rpart", 
+                          trControl = fit_control)
+plot(cv_tree_carseats)
+```
+
+```{r}
+plot(as.party(cv_tree_carseats$finalModel))
+```
+
+```{r}
+pred_carseats_1 = predict(cv_tree_carseats, testing)
+mean((testing$Sales - pred_carseats_1)^2)
+```
+
+Pruning slightly reduces the test MSE to 2.832617
+
+D
+
+
+```{r}
+bag_carseats <- randomForest(Sales ~ ., data = training, mtry = 10)
+bag_carseats
+
+test_preds <- predict(bag_carseats, newdata = testing)
+carseats_test_df <- testing %>%
+  mutate(y_hat_bags = test_preds,
+         sq_err_bags = (y_hat_bags - Sales)^2)
+mean(carseats_test_df$sq_err_bags)
+```
+
+The test error rate when using the bagging approach is further reduced to 2.303416
+
+
+```{r}
+importance(bag_carseats)
+```
+
+We can rightly conclude that “Price” and “ShelveLoc” are the two most important variables.
+
+E
+
+```{r}
+rf_carseats <- randomForest(Sales ~ ., 
+                            data = training,
+                            mtry = 10)
+rf_carseats
+
+pred_carseats_3 = predict(rf_carseats, testing)
+mean((testing$Sales - pred_carseats_3)^2)
+```
+The random forest MSE is 2.3171, just slightly higher than the MSE for the bagging approach.
+
+```{r}
+importance(rf_carseats)
+```
+
+We may rightly conclude here also, “Price” and “ShelveLoc” are the two most important variables.
+
+Addtional Task
+
+1.
+
+```{r}
+grid <- expand.grid(interaction.depth = c(1, 3), 
+                    n.trees = seq(0, 2000, by = 100),
+                    shrinkage = c(.01, 0.001),
+                    n.minobsinnode = 10)
+trainControl <- trainControl(method = "cv", number = 5)
+gbm_carseats <- train(Sales ~ ., 
+                      data = training, 
+                      distribution = "gaussian", 
+                      method = "gbm",
+                      trControl = trainControl, 
+                      tuneGrid = grid,
+                      verbose = FALSE)
+gbm_carseats
+```
+
+```{r}
+plot(gbm_carseats)
+```
+
+```{r}
+pred_carseats_4 = predict(gbm_carseats, testing)
+mean((testing$Sales - pred_carseats_4)^2)
+```
+
+The MSE has further improved by being reduced to 1.558294
+
+
+2. Fit a multiple regression model to the training data and report the  estimated test MSE
+```{r}
+lm_carseats <- lm(Sales ~.,
+                  data = training)
+lm_carseats
+
+pred_carseats_final = predict(lm_carseats, testing)
+mean((testing$Sales - pred_carseats_final)^2)
+```
+The test MSE here happens to be the best: 0.9196422
+
+Summary of Mean Square Error
+
+b- Regression Tree MSE: 2.8554
+c- CV Pruned Regression Tree MSE: 2.8326
+d- Bagged Random Forest MSE: 2.3034
+e- Random Forest: 2.3171
+f- Gradient Boosted Model: 1.5582
+G- Multiple Regression Model: 0.9196
