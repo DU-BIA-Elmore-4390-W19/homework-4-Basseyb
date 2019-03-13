@@ -11,7 +11,10 @@ Problem 7 from Chapter 8 in the text. To be specific, please use a sequence of `
 Answer 1
 --------
 
-Since this was already answered in the last class (and since you said it wont be graded, I have not included it here) \#\# Problem 2
+Since this was already answered in the last class (and since you said it wont be graded, I have not included it here)
+
+Problem 2
+---------
 
 Problem 8 from Chapter 8 in the text. Set your seed with 9823 and split into train/test using 50% of your data in each split. In addition to parts (a) - (e), do the following:
 
